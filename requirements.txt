@@ -7,3 +7,5 @@ joblib
 xgboost
 shap>=0.41.0
 streamlit
+dice-ml
+google-generativeai
