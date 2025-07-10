@@ -9,3 +9,4 @@ shap>=0.41.0
 streamlit
 dice-ml
 google-generativeai
+fpdf==1.7.2
