@@ -10,3 +10,4 @@ streamlit
 dice-ml
 google-generativeai
 fpdf==1.7.2
+raiutils
