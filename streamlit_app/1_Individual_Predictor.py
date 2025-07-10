@@ -11,8 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from raiutils.exceptions import UserConfigValidationException
 
-# --- FIX: Robust Path Handling for Deployment ---
-# This finds the root directory of your project from the script's location
+# --- Robust Path Handling for Deployment ---
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(project_root)
 

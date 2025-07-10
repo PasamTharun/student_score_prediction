@@ -3,9 +3,9 @@ import pandas as pd
 import joblib
 import os
 import numpy as np
+import google.generativeai as genai
 
-# --- FIX: Robust Path Handling for Deployment ---
-# This finds the root directory from within the 'pages' subfolder by going up two levels
+# --- Robust Path Handling for Deployment ---
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 # --- Page Configuration ---
@@ -16,20 +16,32 @@ PREPROCESSOR_PATH = os.path.join(project_root, 'data', 'processed', 'preprocesso
 MODEL_PATH = os.path.join(project_root, 'models', 'xgboost', 'model.pkl')
 RAW_DATA_PATH = os.path.join(project_root, 'data', 'raw', 'dataset.csv')
 
+# --- Initialize Chat History in Session State ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
 # --- Sidebar ---
 st.sidebar.title("App Controls")
 if st.sidebar.button("Clear App Cache"):
     st.cache_data.clear()
     st.cache_resource.clear()
+    st.session_state.messages = []
     st.rerun()
 
+# --- Load Google Gemini API Key from Secrets ---
+try:
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+except (KeyError, FileNotFoundError):
+    st.error("Google AI API key not found. Please add it to your .streamlit/secrets.toml file.")
+    st.stop()
+
+
 st.title("👩‍🏫 Interactive Classroom Performance Dashboard")
-st.markdown("Analyze class-wide performance, filter by achievement tiers, and spotlight individual students.")
+st.markdown("Analyze class-wide performance, filter by achievement tiers, and chat with your data using Google Gemini.")
 
 # --- Load Assets ---
 @st.cache_resource
 def load_assets():
-    """Loads all necessary assets with error handling."""
     try:
         preprocessor = joblib.load(PREPROCESSOR_PATH)
         model = joblib.load(MODEL_PATH)
@@ -47,15 +59,11 @@ if model is None:
 # --- Predict for the entire class ---
 @st.cache_data
 def predict_class_performance(_raw_data):
-    """Adds predicted scores and performance tiers to the class data."""
     processed_data = preprocessor.transform(_raw_data.drop('final_exam_score', axis=1))
     predicted_scores_raw = model.predict(processed_data)
     _raw_data['predicted_score'] = np.clip(predicted_scores_raw, 0, 100)
     
-    conditions = [
-        (_raw_data['predicted_score'] >= 90),
-        (_raw_data['predicted_score'] >= 60)
-    ]
+    conditions = [(_raw_data['predicted_score'] >= 90), (_raw_data['predicted_score'] >= 60)]
     choices = ['Topper', 'Medium']
     _raw_data['performance_tier'] = np.select(conditions, choices, default='At-Risk')
     return _raw_data
@@ -71,7 +79,6 @@ if performance_filter == "All Students":
 else:
     filtered_data = class_data[class_data['performance_tier'] == performance_filter]
 
-# --- Display Dynamic Metrics ---
 st.header(f"📈 Analysis for: {performance_filter}")
 col1, col2, col3 = st.columns(3)
 col1.metric("Student Count", len(filtered_data))
@@ -116,6 +123,44 @@ with detail_tab2:
         st.bar_chart(filtered_data['stress_level'].value_counts())
     else:
         st.warning(f"No data to display for the '{performance_filter}' tier.")
+
+
+# --- Conversational AI Chatbot Section ---
+st.markdown("---")
+st.header("🤖 Ask Gemini About Your Classroom Data")
+
+gemini_model = genai.GenerativeModel('gemini-1.5-flash-latest')
+
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+if prompt := st.chat_input("e.g., Who are the top 3 at-risk students?"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    prompt_lower = prompt.lower()
+    if "at-risk" in prompt_lower:
+        context_data = class_data[class_data['performance_tier'] == 'At-Risk']
+    elif "topper" in prompt_lower:
+        context_data = class_data[class_data['performance_tier'] == 'Topper']
+    else:
+        context_data = class_data.sample(n=min(100, len(class_data)))
+
+    data_for_ai = context_data.to_csv(index=False)
+    full_prompt = f"You are a helpful data analyst. Analyze the following CSV data about student performance and answer the user's question. Data:\n{data_for_ai}\n\nQuestion: {prompt}"
+
+    with st.chat_message("assistant"):
+        with st.spinner("Gemini is thinking..."):
+            try:
+                response = gemini_model.generate_content(full_prompt)
+                response_content = response.text
+            except Exception as e:
+                response_content = f"An error occurred with the Gemini API: {e}"
+            
+            st.markdown(response_content)
+            st.session_state.messages.append({"role": "assistant", "content": response_content})
 
 # --- Footer ---
 st.sidebar.markdown("---")
