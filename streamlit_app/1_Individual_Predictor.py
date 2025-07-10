@@ -161,7 +161,8 @@ if st.session_state.prediction_made:
     for rec in st.session_state.recommendations:
         pdf.multi_cell(0, 10, f"- {rec}")
 
-    pdf_output = bytes(pdf.output())
+    # FIX: Correctly generate the PDF as bytes for the download button
+    pdf_output = pdf.output(dest='S').encode('latin-1')
 
     st.download_button(label="Download PDF Report", data=pdf_output, file_name=f"student_report_{st.session_state.input_data.iloc[0]['previous_score']:.0f}.pdf", mime="application/pdf")
 
