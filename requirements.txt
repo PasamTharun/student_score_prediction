@@ -2,7 +2,7 @@ pandas>=2.2.3
 numpy==1.24.3
 scikit-learn
 xgboost
-tensorflow-cpu>=2.17.0
+tensorflow-cpu>=2.19.0
 shap==0.45.0
 lime==0.2.0.1
 streamlit==1.35.0
