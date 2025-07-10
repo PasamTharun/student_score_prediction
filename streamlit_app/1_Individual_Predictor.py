@@ -9,10 +9,10 @@ from fpdf import FPDF
 from sklearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
 import numpy as np
-# Import the specific exception to catch it gracefully
 from raiutils.exceptions import UserConfigValidationException
 
-# --- Fix for ModuleNotFoundError and Path Setup ---
+# --- FIX: Robust Path Handling for Deployment ---
+# This finds the root directory of your project from the script's location
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(project_root)
 
@@ -21,7 +21,7 @@ from src.recommendations.generate_recommendations import generate_recommendation
 # --- Page Configuration ---
 st.set_page_config(page_title="Individual Predictor", page_icon="👤", layout="wide")
 
-# --- Define Paths and Constants ---
+# --- Define Paths Relative to Project Root ---
 PREPROCESSOR_PATH = os.path.join(project_root, 'data', 'processed', 'preprocessor.pkl')
 MODEL_PATH = os.path.join(project_root, 'models', 'xgboost', 'model.pkl')
 RAW_DATA_PATH = os.path.join(project_root, 'data', 'raw', 'dataset.csv')
@@ -117,7 +117,6 @@ if st.session_state.prediction_made:
         plt.close(fig)
         st.caption("The waterfall plot shows how each feature pushes the score from a baseline to the final prediction.")
 
-    # --- FIX: Final Counterfactuals section with specific error handling ---
     st.subheader("🎯 How to Improve? (Counterfactuals)")
     target_score = st.slider("Set a Target Score to Achieve:", min_value=float(st.session_state.prediction), max_value=100.0, value=min(float(st.session_state.prediction) + 5, 100.0))
 
@@ -143,7 +142,6 @@ if st.session_state.prediction_made:
                 else:
                     st.warning("Could not find any improvement plans that also meet the 75% attendance requirement. The required changes might be too significant.")
 
-            # Catch the specific error when no plans can be found at all
             except UserConfigValidationException:
                 st.warning("No improvement plans could be generated for this target. This usually means the goal is too ambitious. Please try setting a more modest target score.")
             except Exception as e:
